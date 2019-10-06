@@ -37,18 +37,23 @@ flags.DEFINE_string('xception_frozen_graph_path', None,
 
 
 class AlignedRenderedDataset(object):
-    def __init__(self, rendered_filepattern, use_semantic_map=True):
+    def __init__(self, rendered_filepattern, use_semantic_map=True,
+                 use_normal_map=True, use_wc_map=True):
         """
         Args:
           rendered_filepattern: string, path filepattern to 3D rendered images (
             assumes filenames are '/path/to/dataset/%d_color.png')
           use_semantic_map: bool, include semantic maps. in the TFRecord
+          use_normal_map: bool, include normal maps. in the TFRecord
+          use_wc_map: bool, include world coordinate maps. in the TFRecord
         """
         self.filenames = sorted(glob.glob(rendered_filepattern))
         assert len(self.filenames) > 0, ('input %s didn\'t match any files!' %
                                          rendered_filepattern)
         self.iter_idx = 0
         self.use_semantic_map = use_semantic_map
+        self.use_normal_map = use_normal_map
+        self.use_wc_map = use_wc_map
 
     def __iter__(self):
         return self
@@ -65,8 +70,7 @@ class AlignedRenderedDataset(object):
             # Read the 3D rendered image
             img_rendered = cv2.imread(rendered_img_name, cv2.IMREAD_UNCHANGED)
             # Change BGR (default cv2 format) to RGB
-            # it has a 4th alpha channel
-            img_rendered = img_rendered[:, :, [2, 1, 0, 3]]
+            img_rendered = img_rendered[:, :, [2, 1, 0]]
             # Read the depth image
             img_depth = cv2.imread(depth_img_name, cv2.IMREAD_UNCHANGED)
             # Workaround as some depth images are read with a different data type!
@@ -89,12 +93,35 @@ class AlignedRenderedDataset(object):
                     img_rendered = utils.get_central_crop(img_rendered)
                     img_depth = utils.get_central_crop(img_depth)
 
+            # If use normal map
+            if self.use_normal_map:
+                normal_img_name = basename + 'normal.png'
+                img_normal = cv2.imread(normal_img_name)
+                if img_normal.shape[0] == 512 and img_seg.shape[1] == 512:
+                    img_ref = utils.get_central_crop(img_ref)
+                    img_rendered = utils.get_central_crop(img_rendered)
+                    img_depth = utils.get_central_crop(img_depth)
+
+            # If use world coordinate map
+            if self.use_wc_map:
+                wc_img_name = basename + 'wc.png'
+                img_wc = cv2.imread(wc_img_name)
+                if img_wc.shape[0] == 512 and img_wc.shape[1] == 512:
+                    img_ref = utils.get_central_crop(img_ref)
+                    img_rendered = utils.get_central_crop(img_rendered)
+                    img_depth = utils.get_central_crop(img_depth)
+
             img_shape = img_depth.shape
             assert img_seg.shape == (img_shape + (3,)), 'error in seg image %s %s' % (
                 basename, str(img_seg.shape))
+            assert img_normal.shape == (img_shape + (3,)), 'error in normal image %s %s' % (
+                basename, str(img_normal.shape))
+            assert img_wc.shape == (img_shape + (3,)), 'error in world coordinate image %s %s' % (
+                basename, str(img_wc.shape))
             assert img_ref.shape == (img_shape + (3,)), 'error in ref image %s %s' % (
                 basename, str(img_ref.shape))
-            assert img_rendered.shape == (img_shape + (4,)), ('error in rendered '
+            # Modified dimension of rendered image. No alpha dimension
+            assert img_rendered.shape == (img_shape + (3,)), ('error in rendered '
                                                               'image %s %s' % (basename, str(img_rendered.shape)))
             assert len(img_depth.shape) == 2, 'error in depth image %s %s' % (
                 basename, str(img_depth.shape))
@@ -107,6 +134,10 @@ class AlignedRenderedDataset(object):
             raw_example['real'] = img_ref.tostring()
             if self.use_semantic_map:
                 raw_example['seg'] = img_seg.tostring()
+            if self.use_normal_map:
+                raw_example['normal'] = img_normal.tostring()
+            if self.use_wc_map:
+                raw_example['wc'] = img_wc.tostring()
             self.iter_idx += 1
             return raw_example
         else:
