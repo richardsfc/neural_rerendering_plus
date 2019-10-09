@@ -3,4 +3,3 @@ datasets/
 deeplabv3_xception_ade20k_train/
 venv/
 vgg16.npy
-vgg16.py
