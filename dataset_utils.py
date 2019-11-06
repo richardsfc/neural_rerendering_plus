@@ -61,6 +61,8 @@ class AlignedRenderedDataset(object):
       basename = rendered_img_name[:-9]  # remove the 'color.png' suffix
       ref_img_name = basename + 'reference.png'
       depth_img_name = basename + 'depth.png'
+      normal_img_name = basename + 'normal.png'
+      wc_img_name = basename + 'wc.png'
       # Read the 3D rendered image
       img_rendered = cv2.imread(rendered_img_name, cv2.IMREAD_UNCHANGED)
       # Change BGR (default cv2 format) to RGB
@@ -77,7 +79,21 @@ class AlignedRenderedDataset(object):
         print('Warning: no reference image found! Using a dummy placeholder!')
         img_height, img_width = img_depth.shape
         img_ref = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+      
+      if osp.exists(normal_img_name):
+        img_normal = cv2.imread(normal_img_name, cv2.IMREAD_UNCHANGED)
+      else:
+        print('Warning: no normal image found! Using a dummy placeholder!')
+        img_height, img_width = img_depth.shape
+        img_normal = np.zeros((img_height, img_width, 3), dtype=np.uint8)
 
+      if osp.exists(wc_img_name):
+        img_wc = cv2.imread(wc_img_name, cv2.IMREAD_UNCHANGED)
+      else:
+        print('Warning: no wc image found! Using a dummy placeholder!')
+        img_height, img_width = img_depth.shape
+        img_wc = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+      
       if self.use_semantic_map:
         semantic_seg_img_name = basename + 'seg_rgb.png'
         img_seg = cv2.imread(semantic_seg_img_name)
@@ -86,6 +102,8 @@ class AlignedRenderedDataset(object):
           img_ref = utils.get_central_crop(img_ref)
           img_rendered = utils.get_central_crop(img_rendered)
           img_depth = utils.get_central_crop(img_depth)
+          img_normal = utils.get_central_crop(img_normal)
+          img_wc = utils.get_central_crop(img_wc)
 
       img_shape = img_depth.shape
       assert img_seg.shape == (img_shape + (3,)), 'error in seg image %s %s' % (
@@ -94,6 +112,10 @@ class AlignedRenderedDataset(object):
         basename, str(img_ref.shape))
       assert img_rendered.shape == (img_shape + (3,)), ('error in rendered '
         'image %s %s' % (basename, str(img_rendered.shape)))
+      assert img_normal.shape == (img_shape + (3,)), ('error in normal '
+        'image %s %s' % (basename, str(img_normal.shape)))
+      assert img_wc.shape == (img_shape + (3,)), 'error in wc image %s %s' % (
+        basename, str(img_wc.shape))
       assert len(img_depth.shape) == 2, 'error in depth image %s %s' % (
         basename, str(img_depth.shape))
 
@@ -103,6 +125,8 @@ class AlignedRenderedDataset(object):
       raw_example['rendered'] = img_rendered.tostring()
       raw_example['depth'] = img_depth.tostring()
       raw_example['real'] = img_ref.tostring()
+      raw_example['normal'] = img_normal.tostring()
+      raw_example['wc'] = img_wc.tostring()
       if self.use_semantic_map:
         raw_example['seg'] = img_seg.tostring()
       self.iter_idx += 1
