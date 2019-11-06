@@ -110,7 +110,7 @@ def get_semantic_color_coding():
 
 def _apply_colors(seg_images_path, save_dir, idx_to_color):
   for i, img_path in enumerate(seg_images_path):
-    print('processing img #%05d / %05d: %s' % (i, len(seg_images_path),
+    print('Coloring seg img #%05d / %05d: %s' % (i, len(seg_images_path),
                                                osp.split(img_path)[1]))
     seg = np.array(Image.open(img_path))
     seg_rgb = np.zeros(seg.shape + (3,), dtype=np.uint8)
@@ -134,26 +134,25 @@ def segment_images(images_path, xception_frozen_graph_path, save_dir,
   if not osp.exists(xception_frozen_graph_path):
     raise OSError('Xception frozen graph not found at %s' %
                             xception_frozen_graph_path)
-  with tf.gfile.GFile(xception_frozen_graph_path, "rb") as f:
-    graph_def = tf.GraphDef()
+  with tf.io.gfile.GFile(xception_frozen_graph_path, "rb") as f:
+    graph_def = tf.compat.v1.GraphDef()
     graph_def.ParseFromString(f.read())
 
   with tf.Graph().as_default() as graph:
-    new_input = tf.placeholder(tf.uint8, [1, crop_height, crop_width, 3],
+    new_input = tf.compat.v1.placeholder(tf.uint8, [1, crop_height, crop_width, 3],
                                name="new_input")
-    tf.import_graph_def(
+    tf.graph_util.import_graph_def(
       graph_def,
       input_map={"ImageTensor:0": new_input},
       return_elements=None,
       name="sem_seg",
-      op_dict=None,
       producer_op_list=None
     )
 
   corrupted_dir = osp.join(save_dir, 'corrupted')
   if not osp.exists(corrupted_dir):
     os.makedirs(corrupted_dir)
-  with tf.Session(graph=graph) as sess:
+  with tf.compat.v1.Session(graph=graph) as sess:
     for i, img_path in enumerate(images_path):
       print('Segmenting image %05d / %05d: %s' % (i + 1, len(images_path),
                                                   img_path))
@@ -162,7 +161,7 @@ def segment_images(images_path, xception_frozen_graph_path, save_dir,
         print('Warning! corrupted image %s' % img_path)
         img_base_path = img_path[:-14]  # remove the '_reference.png' suffix
         srcs = sorted(glob.glob(img_base_path + '_*'))
-        dest = unicode(corrupted_dir + '/.')
+        dest = str(corrupted_dir + '/.')
         for src in srcs:
           shutil.move(src, dest)
         continue

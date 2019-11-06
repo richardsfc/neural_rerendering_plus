@@ -41,7 +41,7 @@ class AlignedRenderedDataset(object):
     Args:
       rendered_filepattern: string, path filepattern to 3D rendered images (
         assumes filenames are '/path/to/dataset/%d_color.png')
-      use_semantic_map: bool, include semantic maps. in the TFRecord
+      use_semantic_map: bool, include semantic maps in the TFRecord
     """
     self.filenames = sorted(glob.glob(rendered_filepattern))
     assert len(self.filenames) > 0, ('input %s didn\'t match any files!' %
@@ -64,7 +64,7 @@ class AlignedRenderedDataset(object):
       # Read the 3D rendered image
       img_rendered = cv2.imread(rendered_img_name, cv2.IMREAD_UNCHANGED)
       # Change BGR (default cv2 format) to RGB
-      img_rendered = img_rendered[:, :, [2,1,0,3]]  # it has a 4th alpha channel
+      img_rendered = img_rendered[:, :, [2,1,0]]
       # Read the depth image
       img_depth = cv2.imread(depth_img_name, cv2.IMREAD_UNCHANGED)
       # Workaround as some depth images are read with a different data type!
@@ -92,7 +92,7 @@ class AlignedRenderedDataset(object):
         basename, str(img_seg.shape))
       assert img_ref.shape == (img_shape + (3,)), 'error in ref image %s %s' % (
         basename, str(img_ref.shape))
-      assert img_rendered.shape == (img_shape + (4,)), ('error in rendered '
+      assert img_rendered.shape == (img_shape + (3,)), ('error in rendered '
         'image %s %s' % (basename, str(img_rendered.shape)))
       assert len(img_depth.shape) == 2, 'error in depth image %s %s' % (
         basename, str(img_depth.shape))
@@ -140,11 +140,11 @@ def filter_out_sparse_renders(dataset_dir, splits, ratio_threshold=0.15):
         parent, basename = osp.split(img_path)
         basename = basename[:-10]  # remove the '_color.png' suffix
         srcs = sorted(glob.glob(osp.join(parent, basename + '_*')))
-        dest = unicode(filtered_dir + '/.')
+        dest = str(filtered_dir + '/.')
         for src in srcs:
           shutil.move(src, dest)
         filtered_images.append(basename)
-        print('filtered fie %d: %s with a desnity of %.3f' % (ii, basename,
+        print('filtered file %d: %s with a desnity of %.3f' % (ii, basename,
                                                               density))
     print('Filtered %d/%d images' % (len(filtered_images), total_images))
     print('Mean desnity = %.4f' % (sum_density / total_images))
@@ -164,7 +164,7 @@ def _to_example(dictionary):
       features[k] = tf.train.Feature(bytes_list=tf.train.BytesList(value=[v]))
     else:
       raise ValueError("Value for %s is not a recognized type; v: %s type: %s" %
-                       (k, str(v[0]), str(type(v[0]))))
+                       (k, str(v), str(type(v))))
 
   return tf.train.Example(features=tf.train.Features(feature=features))
 
@@ -173,10 +173,9 @@ def _generate_tfrecord_dataset(generator,
                               output_name,
                               output_dir):
   """Convert a dataset into TFRecord format."""
-  output_filename = os.path.join(output_dir, output_name)
-  output_file = os.path.join(output_dir, output_filename)
-  tf.logging.info("Writing TFRecords to file %s", output_file)
-  writer = tf.python_io.TFRecordWriter(output_file)
+  output_file = osp.join(output_dir, output_name)
+  tf.compat.v1.logging.info("Writing TFRecords to file %s", output_file)
+  writer = tf.io.TFRecordWriter(output_file)
 
   counter = 0
   for case in generator:
