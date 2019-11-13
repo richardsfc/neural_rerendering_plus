@@ -29,9 +29,9 @@ import utils
 
 def _load_and_concatenate_image_channels(
     rgb_path=None, rendered_path=None, depth_path=None, seg_path=None,
-    crop_size=512):
+    normal_path=None, wc_path=None, crop_size=512):
   if (rgb_path is None and rendered_path is None and depth_path is None and
-      seg_path is None):
+      seg_path is None and normal_path is None and wc_path is None):
     raise ValueError('At least one of the inputs has to be not None')
 
   channels = ()
@@ -53,6 +53,15 @@ def _load_and_concatenate_image_channels(
   if seg_path is not None:
     seg_img = np.array(Image.open(seg_path)).astype(np.float32)
     channels = channels + (seg_img,)
+  # Normal + wc channels
+  if normal_path is not None:
+    normal_img = np.array(Image.open(normal_path)).astype(np.float32)
+    normal_img = utils.get_central_crop(normal_img, crop_size, crop_size)
+    channels = channels + (normal_img,)
+  if wc_path is not None:
+    wc_img = np.array(Image.open(wc_path)).astype(np.float32)
+    wc_img = utils.get_central_crop(wc_img, crop_size, crop_size)
+    channels = channels + (wc_img,)
   # Concatenate and normalize channels
   img = np.dstack(channels)
   img = img * (2.0 / 255) - 1.0
@@ -64,9 +73,12 @@ def read_single_appearance_input(rgb_img_path):
   rendered_img_path = base_path + '_color.png'
   depth_img_path = base_path + '_depth.png'
   semantic_img_path = base_path + '_seg_rgb.png'
+  # Normal + wc channels
+  normal_img_path = base_path + '_normal.png'
+  wc_img_path = base_path = '_wc.png'
   network_input_img = _load_and_concatenate_image_channels(
       rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path,
-      crop_size=opts.train_resolution)
+      normal_img_path, wc_img_path, crop_size=opts.train_resolution)
   return network_input_img
 
 
