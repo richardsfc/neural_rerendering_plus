@@ -148,7 +148,7 @@ def build_model_fn(batch_size, lr_app_pretrain=0.0001, adam_beta1=0.0,
   def model_fn(features, labels, mode, params):
     del labels, params
 
-    step = tf.train.get_global_step()
+    step = tf.compat.v1.train.get_global_step()
     app_func = networks.DRITAppearanceEncoderConcat(
       'appearance_net', opts.appearance_nc, opts.normalize_drit_Ez)
 
@@ -216,7 +216,7 @@ def compute_dist_matrix(imageset_dir, dist_file_path, recompute_dist=False):
    print('*** Loading distance matrix from %s' % dist_file_path)
    with open(dist_file_path, 'rb') as f:
      dist_matrix = pickle.load(f)['dist_matrix']
-     print('loaded a dist_matrix of shape: %s' % str(dist_matrix.shape))
+     print('Loaded a dist_matrix of shape: %s' % str(dist_matrix.shape))
      return dist_matrix
   else:
     images_paths = sorted(glob.glob(osp.join(imageset_dir, '*_reference.png')))
@@ -235,7 +235,7 @@ def train_appearance(train_dir, imageset_dir, dist_file_path):
   trainset_size = len(glob.glob(osp.join(imageset_dir, '*_reference.png')))
   resume_step = utils.load_global_step_from_checkpoint_dir(train_dir)
   if resume_step != 0:
-    tf.logging.warning('DBG: resuming apperance pretraining at %d!' %
+    tf.compat.v1.logging.warning('DBG: Resuming apperance pretraining at %d!' %
                        resume_step)
   model_fn = build_model_fn(batch_size, lr_app_pretrain)
   config = tf.estimator.RunConfig(

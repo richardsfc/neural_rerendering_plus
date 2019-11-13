@@ -30,9 +30,9 @@ def gram_matrix(layer):
     gram: [batch_sz x num_channels x num_channels]: a batch of gram matrices
   """
   batch_size, height, width, num_channels = layer.get_shape().as_list()
-  features = tf.reshape(layer, [batch_size, height * width, num_channels])
-  num_elements = tf.constant(num_channels * height * width, tf.float32)
-  gram = tf.matmul(features, features, adjoint_a=True) / num_elements
+  features = tf.compat.v1.reshape(layer, [batch_size, height * width, num_channels])
+  num_elements = tf.compat.v1.constant(num_channels * height * width, tf.float32)
+  gram = tf.compat.v1.matmul(features, features, adjoint_a=True) / num_elements
   return gram
 
 

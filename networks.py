@@ -329,10 +329,10 @@ class DRITAppearanceEncoderConcat(object):
 
   def __init__(self, name_scope, input_nc, normalize_encoder):
     self.blocks = []
-    activation = functools.partial(tf.nn.leaky_relu, alpha=0.2)
+    activation = functools.partial(tf.compat.v1.nn.leaky_relu, alpha=0.2)
     conv2d = functools.partial(layers.LayerConv, use_scaling=opts.use_scaling,
                                relu_slope=0.2, padding='SAME')
-    with tf.variable_scope(name_scope, tf.AUTO_REUSE):
+    with tf.compat.v1.variable_scope(name_scope, tf.AUTO_REUSE):
       if normalize_encoder:
         self.blocks.append(layers.LayerPipe([
             conv2d('conv0', w=4, n=[input_nc, 64], stride=2),

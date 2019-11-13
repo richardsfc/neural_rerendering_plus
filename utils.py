@@ -47,7 +47,7 @@ def get_central_crop(img, crop_height=512, crop_width=512):
 
 
 def load_global_step_from_checkpoint_dir(checkpoint_dir):
-  """Loads  the global step from the checkpoint directory.
+  """Loads the global step from the checkpoint directory.
 
   Args:
     checkpoint_dir: string, path to the checkpoint directory.
@@ -56,9 +56,9 @@ def load_global_step_from_checkpoint_dir(checkpoint_dir):
     int, the global step of the latest checkpoint or 0 if none was found.
   """
   try:
-    checkpoint_reader = tf.train.NewCheckpointReader(
-        tf.train.latest_checkpoint(checkpoint_dir))
-    return checkpoint_reader.get_tensor(tf.GraphKeys.GLOBAL_STEP)
+    checkpoint_reader = tf.compat.v1.train.NewCheckpointReader(
+        tf.compat.v1.train.latest_checkpoint(checkpoint_dir))
+    return checkpoint_reader.get_tensor(tf.compat.v1.GraphKeys.GLOBAL_STEP)
   except:
     return 0
 

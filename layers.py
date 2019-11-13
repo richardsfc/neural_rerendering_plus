@@ -104,11 +104,11 @@ class LayerConv(object):
     """
     assert padding in ['SAME', 'VALID', 'REFLECT'], 'Error: unsupported padding'
     self._padding = padding
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
       if isinstance(stride, int):
         stride = [1, stride, stride, 1]
       else:
-        assert len(stride) == 0, "stride is either an int or a 2-tuple"
+        assert len(stride) == 2, "stride is either an int or a 2-tuple"
         stride = [1, stride[0], stride[1], 1]
       if isinstance(w, int):
         w = [w, w]

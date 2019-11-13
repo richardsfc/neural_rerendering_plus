@@ -21,14 +21,13 @@ class Vgg16:
     :param rgb: rgb image [batch, height, width, 3] values scaled [-1, 1]
     """
 
-    start_time = time.time()
-    print('build model started')
+    print('Build vggNet started')
 
     rgb_scaled = (rgb + 1) * 255.0 / 2.
     # Convert RGB to BGR
-    red, green, blue = tf.split(axis=3, num_or_size_splits=3,
+    red, green, blue = tf.compat.v1.split(axis=3, num_or_size_splits=3,
                                 value=rgb_scaled)
-    bgr = tf.concat(axis=3, values=[
+    bgr = tf.compat.v1.concat(axis=3, values=[
         blue - VGG_MEAN[0],
         green - VGG_MEAN[1],
         red - VGG_MEAN[2],
@@ -36,7 +35,7 @@ class Vgg16:
 
     self.data_dict = np.load(self.vgg16_npy_path, encoding='latin1', allow_pickle=True).item()
     layer_dict = dict()
-    with tf.variable_scope('vgg16', reuse=self.initialized):
+    with tf.compat.v1.variable_scope('vgg16', reuse=self.initialized):
       layer_dict['conv1_1'] = self.conv_layer(bgr, 'conv1_1')
       layer_dict['conv1_2'] = self.conv_layer(
           layer_dict['conv1_1'], 'conv1_2')
@@ -95,7 +94,7 @@ class Vgg16:
                           padding='SAME', name=name)
 
   def conv_layer(self, bottom, name):
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
       filt = self.get_conv_filter(name)
 
       conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
@@ -107,12 +106,12 @@ class Vgg16:
       return relu
 
   def fc_layer(self, bottom, name):
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
       shape = bottom.get_shape().as_list()
       dim = 1
       for d in shape[1:]:
         dim *= d
-      x = tf.reshape(bottom, [-1, dim])
+      x = tf.compat.v1.reshape(bottom, [-1, dim])
 
       weights = self.get_fc_weight(name)
       biases = self.get_bias(name)
@@ -124,10 +123,10 @@ class Vgg16:
       return fc
 
   def get_conv_filter(self, name):
-    return tf.constant(self.data_dict[name][0], name='filter')
+    return tf.compat.v1.constant(self.data_dict[name][0], name='filter')
 
   def get_bias(self, name):
-    return tf.constant(self.data_dict[name][1], name='biases')
+    return tf.compat.v1.constant(self.data_dict[name][1], name='biases')
 
   def get_fc_weight(self, name):
-    return tf.constant(self.data_dict[name][0], name='weights')
+    return tf.compat.v1.constant(self.data_dict[name][0], name='weights')
