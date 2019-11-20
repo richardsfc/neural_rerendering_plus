@@ -75,7 +75,7 @@ def read_single_appearance_input(rgb_img_path):
   semantic_img_path = base_path + '_seg_rgb.png'
   # Normal + wc channels
   normal_img_path = base_path + '_normal.png'
-  wc_img_path = base_path = '_wc.png'
+  wc_img_path = base_path + '_wc.png'
   network_input_img = _load_and_concatenate_image_channels(
       rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path,
       normal_img_path, wc_img_path, crop_size=opts.train_resolution)
