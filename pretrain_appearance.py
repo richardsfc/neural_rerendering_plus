@@ -162,7 +162,7 @@ def build_model_fn(batch_size, lr_app_pretrain=0.0001, adam_beta1=0.0,
 
     step = tf.compat.v1.train.get_global_step()
     app_func = networks.DRITAppearanceEncoderConcat(
-      'appearance_net', opts.appearance_nc, opts.normalize_drit_Ez)
+      'appearance_net', 16, opts.normalize_drit_Ez) #opts.appearance_nc
 
     if mode == tf.estimator.ModeKeys.TRAIN:
       op_increment_step = tf.assign_add(step, 1)
