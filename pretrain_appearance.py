@@ -29,7 +29,7 @@ import utils
 
 def _load_and_concatenate_image_channels(
     rgb_path=None, rendered_path=None, depth_path=None, seg_path=None,
-    crop_size=512):
+    normal_path=None, wc_path=None, crop_size=512):
   if (rgb_path is None and rendered_path is None and depth_path is None and
       seg_path is None):
     raise ValueError('At least one of the inputs has to be not None')
@@ -53,25 +53,44 @@ def _load_and_concatenate_image_channels(
   if seg_path is not None:
     seg_img = np.array(Image.open(seg_path)).astype(np.float32)
     channels = channels + (seg_img,)
+  if normal_path is not None:
+    normal_img = np.array(Image.open(normal_path)).astype(np.float32)
+    normal_img = utils.get_central_crop(normal_img, crop_size, crop_size)
+    channels = channels + (normal_img,)
+  if wc_path is not None:
+    wc_img = np.array(Image.open(wc_path)).astype(np.float32)
+    wc_img = utils.get_central_crop(wc_img, crop_size, crop_size)
+    channels = channels + (wc_img, )
   # Concatenate and normalize channels
   img = np.dstack(channels)
   img = img * (2.0 / 255) - 1.0
   return img
 
 
-def read_single_appearance_input(rgb_img_path):
+def read_single_appearance_input(rgb_img_path, mode):
   base_path = rgb_img_path[:-14]  # remove the '_reference.png' suffix
   rendered_img_path = base_path + '_color.png'
   depth_img_path = base_path + '_depth.png'
   semantic_img_path = base_path + '_seg_rgb.png'
-  network_input_img = _load_and_concatenate_image_channels(
-      rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path,
-      crop_size=opts.train_resolution)
+  normal_img_path = base_path + '_normal.png'
+  wc_img_path = base_path + '_wc.png'
+  if mode == 'normal_wc':
+    network_input_img = _load_and_concatenate_image_channels(
+      rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path, normal_img_path, wc_img_path)
+  elif mode == 'normal':
+    network_input_img = _load_and_concatenate_image_channels(
+      rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path, normal_img_path)
+  elif mode == 'wc':
+    network_input_img = _load_and_concatenate_image_channels(
+      rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path, wc_path=wc_img_path)
+  else:
+    network_input_img = _load_and_concatenate_image_channels(
+      rgb_img_path, rendered_img_path, depth_img_path, semantic_img_path)
   return network_input_img
 
 
 def get_triplet_input_fn(dataset_path, dist_file_path=None, k_max_nearest=5,
-                         k_max_farthest=13):
+                         k_max_farthest=13, mode='baseline'):
   input_images_pattern = osp.join(dataset_path, '*_reference.png')
   filenames = sorted(glob.glob(input_images_pattern))
   print('DBG: obtained %d input filenames for triplet inputs' % len(filenames))
@@ -100,13 +119,13 @@ def get_triplet_input_fn(dataset_path, dist_file_path=None, k_max_nearest=5,
     negative_img_idx = sorted_neighbors[anchor_idx][negative_neighbor_idx]
     # Read anchor image
     anchor_rgb_path = osp.join(dataset_path, filenames[anchor_idx])
-    anchor_input = read_single_appearance_input(anchor_rgb_path)
+    anchor_input = read_single_appearance_input(anchor_rgb_path, mode)
     # Read positive image
     positive_rgb_path = osp.join(dataset_path, filenames[positive_img_idx])
-    positive_input = read_single_appearance_input(positive_rgb_path)
+    positive_input = read_single_appearance_input(positive_rgb_path, mode)
     # Read negative image
     negative_rgb_path = osp.join(dataset_path, filenames[negative_img_idx])
-    negative_input = read_single_appearance_input(negative_rgb_path)
+    negative_input = read_single_appearance_input(negative_rgb_path, mode)
     # Return triplet
     return anchor_input, positive_input, negative_input
 
@@ -115,12 +134,12 @@ def get_triplet_input_fn(dataset_path, dist_file_path=None, k_max_nearest=5,
 
 def get_tf_triplet_dataset_iter(
     dataset_path, trainset_size, dist_file_path, batch_size=4,
-    deterministic_flag=False, shuffle_buf_size=128, repeat_flag=True):
+    deterministic_flag=False, shuffle_buf_size=128, repeat_flag=True, mode='baseline'):
   # Create a dataset of anchor image indices.
-  idx_dataset = tf.data.Dataset.range(trainset_size)
+  idx_dataset = tf.compat.v1.data.Dataset.range(trainset_size)
   # Create a mapper function from anchor idx to triplet images.
   triplet_mapper = lambda idx: tuple(tf.py_func(
-      get_triplet_input_fn(dataset_path, dist_file_path), [idx],
+      get_triplet_input_fn(dataset_path, dist_file_path, mode=mode), [idx],
       [tf.float32, tf.float32, tf.float32]))
   # Convert triplet to a dictionary for the estimator input format.
   triplet_to_dict_mapper = lambda anchor, pos, neg: {
@@ -152,9 +171,9 @@ def build_model_fn(batch_size, lr_app_pretrain=0.0001, adam_beta1=0.0,
     app_func = networks.DRITAppearanceEncoderConcat(
       'appearance_net', opts.appearance_nc, opts.normalize_drit_Ez)
 
-    if mode == tf.estimator.ModeKeys.TRAIN:
-      op_increment_step = tf.assign_add(step, 1)
-      with tf.name_scope('Appearance_Loss'):
+    if mode == tf.compat.v1.estimator.ModeKeys.TRAIN:
+      op_increment_step = tf.compat.v1.assign_add(step, 1)
+      with tf.compat.v1.name_scope('Appearance_Loss'):
         anchor_img = features['anchor_img']
         positive_img = features['positive_img']
         negative_img = features['negative_img']
@@ -162,45 +181,45 @@ def build_model_fn(batch_size, lr_app_pretrain=0.0001, adam_beta1=0.0,
         z_anchor, _, _ = app_func(anchor_img)
         z_pos, _, _ = app_func(positive_img)
         z_neg, _, _ = app_func(negative_img)
-        # Squeeze into shape of [batch_sz x vec_sz]
-        anchor_embedding = tf.squeeze(z_anchor, axis=[1, 2], name='z_anchor')
-        positive_embedding = tf.squeeze(z_pos, axis=[1, 2])
-        negative_embedding = tf.squeeze(z_neg, axis=[1, 2])
+        # Squeeze into shape of [batch_sz, app_vec_sz]
+        anchor_embedding = tf.compat.v1.squeeze(z_anchor, axis=[1, 2], name='z_anchor')
+        positive_embedding = tf.compat.v1.squeeze(z_pos, axis=[1, 2])
+        negative_embedding = tf.compat.v1.squeeze(z_neg, axis=[1, 2])
         # Compute triplet loss
         margin = 0.1
-        anchor_positive_dist = tf.reduce_sum(
-            tf.square(anchor_embedding - positive_embedding), axis=1)
-        anchor_negative_dist = tf.reduce_sum(
-            tf.square(anchor_embedding - negative_embedding), axis=1)
+        anchor_positive_dist = tf.compat.v1.reduce_sum(
+            tf.compat.v1.square(anchor_embedding - positive_embedding), axis=1)
+        anchor_negative_dist = tf.compat.v1.reduce_sum(
+            tf.compat.v1.square(anchor_embedding - negative_embedding), axis=1)
         triplet_loss = anchor_positive_dist - anchor_negative_dist + margin
-        triplet_loss = tf.maximum(triplet_loss, 0.)
-        triplet_loss = tf.reduce_sum(triplet_loss) / batch_size
-        tf.summary.scalar('appearance_triplet_loss', triplet_loss)
+        triplet_loss = tf.compat.v1.maximum(triplet_loss, 0.)
+        triplet_loss = tf.compat.v1.reduce_sum(triplet_loss) / batch_size
+        tf.compat.v1.summary.scalar('appearance_triplet_loss', triplet_loss)
 
         # Image summaries
-        anchor_rgb = tf.slice(anchor_img, [0, 0, 0, 0], [-1, -1, -1, 3])
-        positive_rgb = tf.slice(positive_img, [0, 0, 0, 0], [-1, -1, -1, 3])
-        negative_rgb = tf.slice(negative_img, [0, 0, 0, 0], [-1, -1, -1, 3])
-        tb_vis = tf.concat([anchor_rgb, positive_rgb, negative_rgb], axis=2)
-        with tf.name_scope('triplet_vis'):
-          tf.summary.image('anchor-pos-neg', tb_vis)
+        anchor_rgb = tf.compat.v1.slice(anchor_img, [0, 0, 0, 0], [-1, -1, -1, 3])
+        positive_rgb = tf.compat.v1.slice(positive_img, [0, 0, 0, 0], [-1, -1, -1, 3])
+        negative_rgb = tf.compat.v1.slice(negative_img, [0, 0, 0, 0], [-1, -1, -1, 3])
+        tb_vis = tf.compat.v1.concat([anchor_rgb, positive_rgb, negative_rgb], axis=2)
+        with tf.compat.v1.name_scope('triplet_vis'):
+          tf.compat.v1.summary.image('anchor-pos-neg', tb_vis)
 
-      optimizer = tf.train.AdamOptimizer(lr_app_pretrain, adam_beta1,
+      optimizer = tf.compat.v1.train.AdamOptimizer(lr_app_pretrain, adam_beta1,
                                          adam_beta2)
       optimizer = tf.contrib.estimator.TowerOptimizer(optimizer)
       app_vars = utils.model_vars('appearance_net')[0]
       print('\n\n***************************************************')
       print('DBG: len(app_vars) = %d' % len(app_vars))
-      for ii, v in enumerate(app_vars):
-        print('%03d) %s' % (ii, str(v)))
+      # for ii, v in enumerate(app_vars):
+      #   print('%03d) %s' % (ii, str(v)))
       print('***************************************************\n\n')
       app_train_op = optimizer.minimize(triplet_loss, var_list=app_vars)
-      return tf.estimator.EstimatorSpec(
+      return tf.compat.v1.estimator.EstimatorSpec(
           mode=mode, loss=triplet_loss,
-          train_op=tf.group(app_train_op, op_increment_step))
-    elif mode == tf.estimator.ModeKeys.PREDICT:
+          train_op=tf.compat.v1.group(app_train_op, op_increment_step))
+    elif mode == tf.compat.v1.estimator.ModeKeys.PREDICT:
       imgs = features['anchor_img']
-      embeddings = tf.squeeze(app_func(imgs), axis=[1, 2])
+      embeddings = tf.compat.v1.squeeze(app_func(imgs), axis=[1, 2])
       app_vars = utils.model_vars('appearance_net')[0]
       tf.train.init_from_checkpoint(osp.join(opts.train_dir),
                                     {'appearance_net/': 'appearance_net/'})
@@ -228,7 +247,7 @@ def compute_dist_matrix(imageset_dir, dist_file_path, recompute_dist=False):
     return dist_matrix
 
 
-def train_appearance(train_dir, imageset_dir, dist_file_path):
+def train_appearance(train_dir, imageset_dir, dist_file_path, mode):
   batch_size = 8
   lr_app_pretrain = 0.001
 
@@ -238,20 +257,20 @@ def train_appearance(train_dir, imageset_dir, dist_file_path):
     tf.compat.v1.logging.warning('DBG: Resuming apperance pretraining at %d!' %
                        resume_step)
   model_fn = build_model_fn(batch_size, lr_app_pretrain)
-  config = tf.estimator.RunConfig(
+  config = tf.compat.v1.estimator.RunConfig(
       save_summary_steps=50,
       save_checkpoints_steps=500,
       keep_checkpoint_max=5,
       log_step_count_steps=100)
-  est = tf.estimator.Estimator(
+  est = tf.compat.v1.estimator.Estimator(
       tf.contrib.estimator.replicate_model_fn(model_fn), train_dir,
       config, params={})
   # Get input function
   input_train_fn = lambda: get_tf_triplet_dataset_iter(
       imageset_dir, trainset_size, dist_file_path,
-      batch_size=batch_size).get_next()
+      batch_size=batch_size, mode=mode).get_next()
   print('Starting pretraining steps...')
-  est.train(input_train_fn, steps=None, hooks=None)  # train indefinitely
+  est.train(input_train_fn, steps=None)  # train indefinitely
 
 
 def main(argv):
@@ -262,11 +281,12 @@ def main(argv):
   dataset_name = opts.dataset_name
   imageset_dir = opts.imageset_dir
   output_dir = opts.metadata_output_dir
+  mode = 'normal_wc'
   if not osp.exists(output_dir):
     os.makedirs(output_dir)
   dist_file_path = osp.join(output_dir, 'dist_%s.pckl' % dataset_name)
   compute_dist_matrix(imageset_dir, dist_file_path)
-  train_appearance(train_dir, imageset_dir, dist_file_path)
+  train_appearance(train_dir, imageset_dir, dist_file_path, mode)
 
 if __name__ == '__main__':
   app.run(main)

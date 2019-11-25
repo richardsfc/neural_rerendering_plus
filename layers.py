@@ -42,27 +42,27 @@ def pixel_norm(x):
   Returns:
     4D tensor with pixel normalized channels.
   """
-  return x * tf.rsqrt(tf.reduce_mean(tf.square(x), [-1], keepdims=True) + 1e-8)
+  return x * tf.compat.v1.rsqrt(tf.compat.v1.reduce_mean(tf.compat.v1.square(x), [-1], keepdims=True) + 1e-8)
 
 
 def global_avg_pooling(x):
-  return tf.reduce_mean(x, axis=[1, 2], keepdims=True)
+  return tf.compat.v1.reduce_mean(x, axis=[1, 2], keepdims=True)
 
 
 class FullyConnected(object):
 
   def __init__(self, n_out_units, scope_suffix='FC'):
-    weight_init = tf.random_normal_initializer(mean=0., stddev=0.02)
+    weight_init = tf.compat.v1.random_normal_initializer(mean=0., stddev=0.02)
     weight_regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
 
     curr_scope = tf.get_variable_scope().name
     self._scope = curr_scope + '/' + scope_suffix
     self.fc_layer = functools.partial(
-      tf.layers.dense, units=n_out_units, kernel_initializer=weight_init,
+      tf.compat.v1.keras.layers.Dense, units=n_out_units, kernel_initializer=weight_init,
       kernel_regularizer=weight_regularizer, use_bias=True)
 
   def __call__(self, x):
-    with tf.variable_scope(self._scope, reuse=tf.AUTO_REUSE):
+    with tf.compat.v1.variable_scope(self._scope, reuse=tf.AUTO_REUSE):
       return self.fc_layer(x)
 
 
@@ -119,12 +119,12 @@ class LayerConv(object):
         init_scale, pre_scale = pre_scale, init_scale
       self._stride = stride
       self._pre_scale = pre_scale
-      self._weight = tf.get_variable(
+      self._weight = tf.compat.v1.get_variable(
           'weight',
           shape=shape,
-          initializer=tf.random_normal_initializer(stddev=init_scale))
-      self._bias = tf.get_variable(
-          'bias', shape=[n[1]], initializer=tf.zeros_initializer)
+          initializer=tf.comnpat.v1.random_normal_initializer(stddev=init_scale))
+      self._bias = tf.compat.v1.get_variable(
+          'bias', shape=[n[1]], initializer=tf.compat.v1.zeros_initializer)
 
   def __call__(self, x):
     """Apply layer to tensor x."""
@@ -142,9 +142,9 @@ class LayerConv(object):
         pad_right = pad_left
       else:
         pad_right = self.w[1] - self._stride[2] - pad_left
-      x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right],
+      x = tf.compat.v1.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right],
                      [0, 0]], mode='REFLECT')
-    y = tf.nn.conv2d(x, self._weight, strides=self._stride, padding=padding)
+    y = tf.compat.v1.nn.conv2d(x, self._weight, strides=self._stride, padding=padding)
     return self._pre_scale * y + self._bias
 
 
@@ -251,7 +251,7 @@ class BasicBlock(object):
   def __init__(self,
                name,
                n,
-               activation=functools.partial(tf.nn.leaky_relu, alpha=0.2),
+               activation=functools.partial(tf.compat.v1.nn.leaky_relu, alpha=0.2),
                padding='SAME',
                use_scaling=True,
                relu_slope=1.):
@@ -260,11 +260,10 @@ class BasicBlock(object):
     conv2d = functools.partial(
         LayerConv, stride=1, padding=padding,
         use_scaling=use_scaling, relu_slope=relu_slope)
-    avg_pool = functools.partial(downscale, n=2)
     nc_in, nc_out = n  # n is a 2-tuple
-    with tf.variable_scope(self.name):
+    with tf.compat.v1.variable_scope(self.name):
       self.path1_blocks = []
-      with tf.variable_scope('bb_path1'):
+      with tf.compat.v1.variable_scope('bb_path1'):
         self.path1_blocks.append(
           LayerPipe([
             activation,
@@ -276,7 +275,7 @@ class BasicBlock(object):
         )
 
       self.path2_blocks = []
-      with tf.variable_scope('bb_path2'):
+      with tf.compat.v1.variable_scope('bb_path2'):
         self.path2_blocks.append(
           LayerPipe([
             downscale,
@@ -355,7 +354,7 @@ def downscale(x, n=2):
   """
   if n == 1:
     return x
-  return tf.nn.avg_pool(x, [1, n, n, 1], [1, n, n, 1], 'VALID')
+  return tf.compat.v1.nn.avg_pool(x, [1, n, n, 1], [1, n, n, 1], 'VALID')
 
 
 def upscale(x, n):

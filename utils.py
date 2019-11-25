@@ -74,7 +74,7 @@ def model_vars(prefix):
      variables and 'others' contains the remaining variables.
   """
   match, no_match = [], []
-  for x in tf.trainable_variables():
+  for x in tf.compat.v1.trainable_variables():
     if x.name.startswith(prefix):
       match.append(x)
     else:

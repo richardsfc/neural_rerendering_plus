@@ -367,5 +367,5 @@ class DRITAppearanceEncoderConcat(object):
     # The following is an arbitrarily chosen *deterministic* latent vector
     # computation. Another option is to let z = mean, but gradients from logvar
     # will be None and will need to be removed.
-    z = mean + tf.exp(0.5 * logvar)
+    z = mean + tf.compat.v1.exp(0.5 * logvar)
     return z, mean, logvar
