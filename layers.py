@@ -58,7 +58,7 @@ class FullyConnected(object):
     curr_scope = tf.get_variable_scope().name
     self._scope = curr_scope + '/' + scope_suffix
     self.fc_layer = functools.partial(
-      tf.compat.v1.keras.layers.Dense, units=n_out_units, kernel_initializer=weight_init,
+      tf.layers.dense, units=n_out_units, kernel_initializer=weight_init,
       kernel_regularizer=weight_regularizer, use_bias=True)
 
   def __call__(self, x):
@@ -122,7 +122,7 @@ class LayerConv(object):
       self._weight = tf.compat.v1.get_variable(
           'weight',
           shape=shape,
-          initializer=tf.comnpat.v1.random_normal_initializer(stddev=init_scale))
+          initializer=tf.compat.v1.random_normal_initializer(stddev=init_scale))
       self._bias = tf.compat.v1.get_variable(
           'bias', shape=[n[1]], initializer=tf.compat.v1.zeros_initializer)
 

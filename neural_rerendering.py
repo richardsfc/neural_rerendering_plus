@@ -47,8 +47,8 @@ def build_model_fn(use_exponential_moving_average=True):
   def model_fn(features, labels, mode, params):
     """An estimator build_fn."""
     del labels, params
-    if mode == tf.estimator.ModeKeys.TRAIN:
-      step = tf.train.get_global_step()
+    if mode == tf.compat.v1.estimator.ModeKeys.TRAIN:
+      step = tf.compat.v1.train.get_global_step()
 
       x_in = features['conditional_input']
       x_gt = features['expected_output']  # ground truth output
@@ -57,10 +57,10 @@ def build_model_fn(use_exponential_moving_average=True):
       if opts.training_pipeline == 'staged':
         ops = staged_model.create_computation_graph(x_in, x_gt, x_app=x_app,
                                                     arch_type=opts.arch_type)
-        op_increment_step = tf.assign_add(step, 1)
+        op_increment_step = tf.compat.v1.assign_add(step, 1)
         train_disc_op = ops['train_disc_op']
         train_renderer_op = ops['train_renderer_op']
-        train_op = tf.group(train_disc_op, train_renderer_op, op_increment_step)
+        train_op = tf.compat.v1.group(train_disc_op, train_renderer_op, op_increment_step)
 
         utils.HookReport.log_tensor(ops['total_loss_d'], 'total_loss_d')
         utils.HookReport.log_tensor(ops['loss_d_real'], 'loss_d_real')
@@ -70,13 +70,13 @@ def build_model_fn(use_exponential_moving_average=True):
         utils.HookReport.log_tensor(ops['loss_g_recon'], 'loss_g_recon')
         utils.HookReport.log_tensor(step, 'global_step')
 
-        return tf.estimator.EstimatorSpec(
+        return tf.compat.v1.estimator.EstimatorSpec(
             mode=mode, loss=ops['total_loss_d'] + ops['total_loss_g'],
             train_op=train_op)
       else:
         raise NotImplementedError('%s training is not implemented.' %
                                   opts.training_pipeline)
-    elif mode == tf.estimator.ModeKeys.EVAL:
+    elif mode == tf.compat.v1.estimator.ModeKeys.EVAL:
       raise NotImplementedError('Eval is not implemented.')
     else:  # all below modes are for difference inference tasks.
       # Build network and initialize inference variables.
@@ -88,7 +88,7 @@ def build_model_fn(use_exponential_moving_average=True):
         var_dict = ema.variables_to_restore()
         tf.train.init_from_checkpoint(osp.join(opts.train_dir), var_dict)
 
-      if mode == tf.estimator.ModeKeys.PREDICT:
+      if mode == tf.compat.v1.estimator.ModeKeys.PREDICT:
         x_in = features['conditional_input']
         if use_appearance:
           x_app = features['peek_input']
@@ -233,47 +233,47 @@ def train(dataset_name, dataset_parent_dir, load_pretrained_app_encoder,
     None.
   """
   image_dir = osp.join(opts.train_dir, 'images')  # to save validation images.
-  tf.gfile.MakeDirs(image_dir)
-  config = tf.estimator.RunConfig(
+  tf.compat.v1.gfile.MakeDirs(image_dir)
+  config = tf.compat.v1.estimator.RunConfig(
       save_summary_steps=(1 << 10) // opts.batch_size,
       save_checkpoints_steps=(save_samples_kimg << 10) // opts.batch_size,
       keep_checkpoint_max=5,
       log_step_count_steps=1 << 30)
   model_dir = opts.train_dir
   if (opts.use_appearance and load_trained_fixed_app and
-      not tf.train.latest_checkpoint(model_dir)):
-    tf.logging.warning('***** Loading resume_step from %s!' %
+      not tf.compat.v1.train.latest_checkpoint(model_dir)):
+    tf.compat.v1.logging.warning('***** Loading resume_step from %s!' %
                        opts.fixed_appearance_train_dir)
     resume_step = utils.load_global_step_from_checkpoint_dir(
         opts.fixed_appearance_train_dir)
   else:
-    tf.logging.warning('***** Loading resume_step (if any) from %s!' %
+    tf.compat.v1.logging.warning('***** Loading resume_step (if any) from %s!' %
                        model_dir)
     resume_step = utils.load_global_step_from_checkpoint_dir(model_dir)
   if resume_step != 0:
-    tf.logging.warning('****** Resuming training at %d!' % resume_step)
+    tf.compat.v1.logging.warning('****** Resuming training at %d!' % resume_step)
 
   model_fn = build_model_fn()  # model function for TFEstimator.
 
   hooks = [utils.HookReport(1 << 12, opts.batch_size)]
 
   if opts.use_appearance and load_pretrained_app_encoder:
-    tf.logging.warning('***** will warm-start from %s!' %
+    tf.compat.v1.logging.warning('***** Will warm-start from %s!' %
                        opts.appearance_pretrain_dir)
-    ws = tf.estimator.WarmStartSettings(
+    ws = tf.compat.v1.estimator.WarmStartSettings(
         ckpt_to_initialize_from=opts.appearance_pretrain_dir,
         vars_to_warm_start='appearance_net/.*')
   elif opts.use_appearance and load_trained_fixed_app:
-    tf.logging.warning('****** finetuning will warm-start from %s!' %
+    tf.compat.v1.logging.warning('****** Finetuning will warm-start from %s!' %
                        opts.fixed_appearance_train_dir)
-    ws = tf.estimator.WarmStartSettings(
+    ws = tf.compat.v1.estimator.WarmStartSettings(
         ckpt_to_initialize_from=opts.fixed_appearance_train_dir,
         vars_to_warm_start='.*')
   else:
     ws = None
-    tf.logging.warning('****** No warm-starting; using random initialization!')
+    tf.compat.v1.logging.warning('****** No warm-starting; using random initialization!')
 
-  est = tf.estimator.Estimator(model_fn, model_dir, config, params={},
+  est = tf.compat.v1.estimator.Estimator(model_fn, model_dir, config, params={},
                                warm_start_from=ws)
 
   for next_kimg in range(opts.save_samples_kimg, opts.total_kimg + 1,
@@ -290,8 +290,8 @@ def train(dataset_name, dataset_parent_dir, load_pretrained_app_encoder,
         crop_size=opts.train_resolution, seeds=crop_seeds,
         use_appearance=opts.use_appearance)
     est.train(input_train_fn, max_steps=next_step, hooks=hooks)
-    tf.logging.info('DBG: kimg=%d, cur_step=%d' % (next_kimg, next_step))
-    tf.logging.info('DBG: Saving a validation grid image %06d to %s' % (
+    tf.compat.v1.logging.info('DBG: kimg=%d, cur_step=%d' % (next_kimg, next_step))
+    tf.compat.v1.logging.info('DBG: Saving a validation grid image %06d to %s' % (
         next_kimg, image_dir))
     make_sample_grid_and_save(est, dataset_name, dataset_parent_dir, (3, 3),
                               image_dir, next_kimg << 10)
@@ -563,10 +563,10 @@ def interpolate_appearance(model_dir, input_dir, target_img_basename,
 def main(argv):
   del argv
   configs_str = options.list_options()
-  tf.gfile.MakeDirs(opts.train_dir)
-  with tf.gfile.Open(osp.join(opts.train_dir, 'configs.txt'), 'wb') as f:
+  tf.compat.v1.gfile.MakeDirs(opts.train_dir)
+  with tf.compat.v1.gfile.Open(osp.join(opts.train_dir, 'configs.txt'), 'wb') as f:
     f.write(configs_str)
-  tf.logging.info('Local configs\n%s' % configs_str)
+  tf.compat.v1.logging.info('Local configs\n%s' % configs_str)
 
   if opts.run_mode == 'train':
     dataset_name = opts.dataset_name
