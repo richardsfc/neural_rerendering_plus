@@ -61,9 +61,9 @@ def _parser_rendered_dataset(
   # Parse the rendered image.
   rendered = tf.decode_raw(features['rendered'], tf.uint8)
   rendered = tf.compat.v1.cast(rendered, tf.float32) * (2.0 / 255) - 1.0
-  rendered = tf.compat.v1.reshape(rendered, [height, width, 4])
+  rendered = tf.compat.v1.reshape(rendered, [height, width, 3])
   if not use_alpha:
-    rendered = tf.slice(rendered, [0, 0, 0], [height, width, 3])
+    rendered = tf.compat.v1.slice(rendered, [0, 0, 0], [height, width, 3])
   conditional_input = rendered
 
   # Parse the depth image.
