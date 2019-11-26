@@ -20,11 +20,11 @@ import tensorflow as tf
 class LayerInstanceNorm(object):
 
   def __init__(self, scope_suffix='instance_norm'):
-    curr_scope = tf.get_variable_scope().name
+    curr_scope = tf.compat.v1.get_variable_scope().name
     self._scope = curr_scope + '/' + scope_suffix
 
   def __call__(self, x):
-    with tf.variable_scope(self._scope, reuse=tf.AUTO_REUSE):
+    with tf.compat.v1.variable_scope(self._scope, reuse=tf.compat.v1.AUTO_REUSE):
       return tf.contrib.layers.instance_norm(
         x, epsilon=1e-05, center=True, scale=True)
 
@@ -369,15 +369,15 @@ def upscale(x, n):
   """
   if n == 1:
     return x
-  x_shape = tf.shape(x)
+  x_shape = tf.compat.v1.shape(x)
   height, width = x_shape[1], x_shape[2]
-  return tf.image.resize_nearest_neighbor(x, [n * height, n * width])
+  return tf.compat.v1.image.resize_nearest_neighbor(x, [n * height, n * width])
 
 
 def tile_and_concatenate(x, z, n_z):
-  z = tf.reshape(z, shape=[-1, 1, 1, n_z])
-  z = tf.tile(z, [1, tf.shape(x)[1], tf.shape(x)[2], 1])
-  x = tf.concat([x, z], axis=-1)
+  z = tf.compat.v1.reshape(z, shape=[-1, 1, 1, n_z])
+  z = tf.compat.v1.tile(z, [1, tf.compat.v1.shape(x)[1], tf.compat.v1.shape(x)[2], 1])
+  x = tf.compat.v1.concat([x, z], axis=-1)
   return x
 
 
@@ -392,9 +392,9 @@ def minibatch_mean_variance(x):
   Returns:
     a scalar, the mean variance of variable x.
   """
-  mean = tf.reduce_mean(x, 0, keepdims=True)
-  vals = tf.sqrt(tf.reduce_mean(tf.squared_difference(x, mean), 0) + 1e-8)
-  vals = tf.reduce_mean(vals)
+  mean = tf.compat.v1.reduce_mean(x, 0, keepdims=True)
+  vals = tf.compat.v1.sqrt(tf.compat.v1.reduce_mean(tf.compat.v1.squared_difference(x, mean), 0) + 1e-8)
+  vals = tf.compat.v1.reduce_mean(vals)
   return vals
 
 
@@ -409,5 +409,5 @@ def scalar_concat(x, scalar):
     a 4D tensor with one extra channel containing the value scalar at
      every position.
   """
-  s = tf.shape(x)
-  return tf.concat([x, tf.ones([s[0], s[1], s[2], 1]) * scalar], axis=3)
+  s = tf.compat.v1.shape(x)
+  return tf.compat.v1.concat([x, tf.compat.v1.ones([s[0], s[1], s[2], 1]) * scalar], axis=3)

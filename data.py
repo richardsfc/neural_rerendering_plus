@@ -22,14 +22,15 @@ import tensorflow as tf
 
 
 def provide_data(dataset_name='', parent_dir='', batch_size=8, subset=None,
-                 max_examples=None, crop_flag=False, crop_size=256, seeds=None,
+                 max_examples=None, crop_flag=False, crop_size=512, seeds=None,
                  use_appearance=True, shuffle=128):
   # Parsing function for each tfrecord example.
   record_parse_fn = functools.partial(
       _parser_rendered_dataset, crop_flag=crop_flag, crop_size=crop_size,
       use_alpha=opts.use_alpha, use_depth=opts.use_depth,
       use_semantics=opts.use_semantic, seeds=seeds,
-      use_appearance=use_appearance)
+      use_appearance=use_appearance, use_normal=opts.use_normal,
+      use_wc=opts.use_wc)
 
   input_dict_var = multi_input_fn_record(
       record_parse_fn, parent_dir, dataset_name, batch_size,
@@ -39,7 +40,7 @@ def provide_data(dataset_name='', parent_dir='', batch_size=8, subset=None,
 
 def _parser_rendered_dataset(
     serialized_example, crop_flag, crop_size, seeds, use_alpha, use_depth,
-    use_semantics, use_appearance):
+    use_semantics, use_appearance, use_normal, use_wc):
   """
   Parses a single tf.Example into a features dictionary with input tensors.
   """
@@ -50,15 +51,17 @@ def _parser_rendered_dataset(
                    'rendered': tf.FixedLenFeature([], tf.string),
                    'depth': tf.FixedLenFeature([], tf.string),
                    'real': tf.FixedLenFeature([], tf.string),
-                   'seg': tf.FixedLenFeature([], tf.string)}
-  features = tf.parse_single_example(serialized_example, features=features_dict)
-  height = tf.cast(features['height'], tf.int32)
-  width = tf.cast(features['width'], tf.int32)
+                   'seg': tf.FixedLenFeature([], tf.string),
+                   'normal': tf.FixedLenFeature([], tf.string),
+                   'wc': tf.FixedLenFeature([], tf.string)}
+  features = tf.compat.v1.parse_single_example(serialized_example, features=features_dict)
+  height = tf.compat.v1.cast(features['height'], tf.int32)
+  width = tf.compat.v1.cast(features['width'], tf.int32)
 
   # Parse the rendered image.
   rendered = tf.decode_raw(features['rendered'], tf.uint8)
-  rendered = tf.cast(rendered, tf.float32) * (2.0 / 255) - 1.0
-  rendered = tf.reshape(rendered, [height, width, 4])
+  rendered = tf.compat.v1.cast(rendered, tf.float32) * (2.0 / 255) - 1.0
+  rendered = tf.compat.v1.reshape(rendered, [height, width, 4])
   if not use_alpha:
     rendered = tf.slice(rendered, [0, 0, 0], [height, width, 3])
   conditional_input = rendered
@@ -66,16 +69,30 @@ def _parser_rendered_dataset(
   # Parse the depth image.
   if use_depth:
     depth = tf.decode_raw(features['depth'], tf.uint16)
-    depth = tf.reshape(depth, [height, width, 1])
-    depth = tf.cast(depth, tf.float32) * (2.0 / 255) - 1.0
-    conditional_input = tf.concat([conditional_input, depth], axis=-1)
+    depth = tf.compat.v1.reshape(depth, [height, width, 1])
+    depth = tf.compat.v1.cast(depth, tf.float32) * (2.0 / 255) - 1.0
+    conditional_input = tf.compat.v1.concat([conditional_input, depth], axis=-1)
 
   # Parse the semantic map.
   if use_semantics:
     seg_img = tf.decode_raw(features['seg'], tf.uint8)
-    seg_img = tf.reshape(seg_img, [height, width, 3])
-    seg_img = tf.cast(seg_img, tf.float32) * (2.0 / 255) - 1
-    conditional_input = tf.concat([conditional_input, seg_img], axis=-1)
+    seg_img = tf.compat.v1.reshape(seg_img, [height, width, 3])
+    seg_img = tf.compat.v1.cast(seg_img, tf.float32) * (2.0 / 255) - 1
+    conditional_input = tf.compat.v1.concat([conditional_input, seg_img], axis=-1)
+  
+  # Parse the normal image
+  if use_normal:
+    normal_img = tf.decode_raw(features['normal'], tf.uint8)
+    normal_img = tf.compat.v1.reshape(normal_img, [height, width, 3])
+    normal_img = tf.compat.v1.cast(normal_img, tf.float32) * (2.0 / 255) - 1
+    conditional_input = tf.compat.v1.concat([conditional_input, normal_img], axis=-1)
+
+  # Parse the wc image
+  if use_wc:
+    wc_img = tf.decode_raw(features['wc'], tf.uint8)
+    wc_img = tf.compat.v1.reshape(wc_img, [height, width, 3])
+    wc_img = tf.compat.v1.cast(wc_img, tf.float32) * (2.0 / 255) - 1
+    conditional_input = tf.compat.v1.concat([conditional_input, wc_img], axis=-1)
 
   # Verify that the parsed input has the correct number of channels.
   assert conditional_input.shape[-1] == opts.deep_buffer_nc, ('num channels '
@@ -84,14 +101,14 @@ def _parser_rendered_dataset(
 
   # Parse the ground truth image.
   real = tf.decode_raw(features['real'], tf.uint8)
-  real = tf.cast(real, tf.float32) * (2.0 / 255) - 1.0
-  real = tf.reshape(real, [height, width, 3])
+  real = tf.compat.v1.cast(real, tf.float32) * (2.0 / 255) - 1.0
+  real = tf.compat.v1.reshape(real, [height, width, 3])
 
   # Parse the appearance image (if any).
   appearance_input = []
   if use_appearance:
     # Concatenate the deep buffer to the real image.
-    appearance_input = tf.concat([real, conditional_input], axis=-1)
+    appearance_input = tf.compat.v1.concat([real, conditional_input], axis=-1)
     # Verify that the parsed input has the correct number of channels.
     assert appearance_input.shape[-1] == opts.appearance_nc, ('num channels '
         'in the parsed appearance input doesn\'t match num input channels '

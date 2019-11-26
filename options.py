@@ -39,15 +39,17 @@ flags.DEFINE_integer('save_samples_kimg', 50, 'kimg cycle to save sample'
 
 # Network inputs/outputs
 flags.DEFINE_boolean('use_depth', True, 'Add depth image to the deep buffer.')
+flags.DEFINE_boolean('use_normal', True, 'Add normal image to the deep buffer.')
+flags.DEFINE_boolean('use_wc', True, 'Add wc image to the deep buffer.')
 flags.DEFINE_boolean('use_alpha', False,
                      'Add alpha channel to the deep buffer.')
 flags.DEFINE_boolean('use_semantic', True,
                      'Add semantic map to the deep buffer.')
 flags.DEFINE_boolean('use_appearance', True,
                      'Capture appearance from an input real image.')
-flags.DEFINE_integer('deep_buffer_nc', 7,
+flags.DEFINE_integer('deep_buffer_nc', 13,
                      'Number of input channels in the deep buffer.')
-flags.DEFINE_integer('appearance_nc', 10,
+flags.DEFINE_integer('appearance_nc', 16,
                      'Number of input channels to the appearance encoder.')
 flags.DEFINE_integer('output_nc', 3,
                      'Number of channels for the generated image.')
@@ -203,6 +205,8 @@ def list_options():
   configs += ('## Network inputs and outputs:\n'
               '## ---------------------------\n')
   configs += 'use_depth = %s\n' % str(FLAGS.use_depth)
+  configs += 'use_normal = %s\n' % str(FLAGS.use_normal)
+  configs += 'use_wc = %s\n' % str(FLAGS.use_wc)
   configs += 'use_alpha = %s\n' % str(FLAGS.use_alpha)
   configs += 'use_semantic = %s\n' % str(FLAGS.use_semantic)
   configs += 'use_appearance = %s\n' % str(FLAGS.use_appearance)

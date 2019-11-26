@@ -88,7 +88,7 @@ class PatchGANDiscriminator(object):
     self.n_layers = n_layers
     kw = 4  # kernel width for convolution
 
-    activation = functools.partial(tf.nn.leaky_relu, alpha=0.2)
+    activation = functools.partial(tf.compat.v1.nn.leaky_relu, alpha=0.2)
     norm_layer = functools.partial(layers.LayerInstanceNorm)
     conv2d = functools.partial(layers.LayerConv, use_scaling=opts.use_scaling,
                                relu_slope=0.2)
@@ -98,8 +98,8 @@ class PatchGANDiscriminator(object):
 
     # Create layers.
     self.blocks = []
-    with tf.variable_scope(name_scope, tf.AUTO_REUSE):
-      with tf.variable_scope('block_0'):
+    with tf.compat.v1.variable_scope(name_scope, tf.compat.v1.AUTO_REUSE):
+      with tf.compat.v1.variable_scope('block_0'):
         self.blocks.append([
             conv2d('conv0', w=kw, n=[input_nc, nf], stride=2),
             activation
@@ -107,7 +107,7 @@ class PatchGANDiscriminator(object):
       for ii_block in range(1, n_layers):
         nf_prev = nf
         nf = min(nf * 2, 512)
-        with tf.variable_scope('block_%d' % ii_block):
+        with tf.compat.v1.variable_scope('block_%d' % ii_block):
           self.blocks.append([
               conv2d('conv%d' % ii_block, w=kw, n=[nf_prev, nf], stride=2),
               norm_layer(),
@@ -116,7 +116,7 @@ class PatchGANDiscriminator(object):
       # Add minibatch_stats (from PGGAN) and do a stride1 convolution.
       nf_prev = nf
       nf = min(nf * 2, 512)
-      with tf.variable_scope('block_%d' % (n_layers + 1)):
+      with tf.compat.v1.variable_scope('block_%d' % (n_layers + 1)):
         self.blocks.append([
             minibatch_stats,  # this is improvised by @meshry
             conv2d('conv%d' % (n_layers + 1), w=kw, n=[nf_prev + 1, nf],
@@ -125,7 +125,7 @@ class PatchGANDiscriminator(object):
             activation
         ])
       # Get 1-channel patchGAN logits
-      with tf.variable_scope('patchGAN_logits'):
+      with tf.compat.v1.variable_scope('patchGAN_logits'):
         self.blocks.append([
             conv2d('conv%d' % (n_layers + 2), w=kw, n=[nf, 1], stride=1)
         ])
@@ -161,7 +161,7 @@ class MultiScaleDiscriminator(object):
                get_fmaps=False):
     self.get_fmaps = get_fmaps
     discs = []
-    with tf.variable_scope(name_scope):
+    with tf.compat.v1.variable_scope(name_scope):
       for i in range(num_scales):
         discs.append(PatchGANDiscriminator(
             'D_scale%d' % i, input_nc, nf=nf, n_layers=n_layers,
@@ -171,7 +171,7 @@ class MultiScaleDiscriminator(object):
   def __call__(self, x, x_cond=None, params=None):
     del params
     if x_cond is not None:
-      x = tf.concat([x, x_cond], axis=3)
+      x = tf.compat.v1.concat([x, x_cond], axis=3)
 
     responses = []
     for ii, D in enumerate(self.discriminators):
@@ -183,7 +183,7 @@ class MultiScaleDiscriminator(object):
 
 class GeneratorPGGAN(object):
   def __init__(self, appearance_vec_size=8, use_scaling=True,
-               num_blocks=5, input_nc=7,
+               num_blocks=5, input_nc=13,
                fmap_base=8192, fmap_decay=1.0, fmap_max=512):
     """Generator model.
   
@@ -209,14 +209,14 @@ class GeneratorPGGAN(object):
 
     nf = functools.partial(_num_filters, fmap_base, fmap_decay, fmap_max)
     self.num_blocks = num_blocks
-    activation = functools.partial(tf.nn.leaky_relu, alpha=0.2)
+    activation = functools.partial(tf.compat.v1.nn.leaky_relu, alpha=0.2)
     conv2d_stride1 = functools.partial(
         layers.LayerConv, stride=1, use_scaling=use_scaling, relu_slope=0.2)
     conv2d_rgb = functools.partial(layers.LayerConv, w=1, stride=1,
                                    use_scaling=use_scaling)
   
     # Create encoder layers.
-    with tf.variable_scope('g_model_enc', tf.AUTO_REUSE):
+    with tf.compat.v1.variable_scope('g_model_enc', tf.compat.v1.AUTO_REUSE):
       self.enc_stage = []
       self.from_rgb = []
 
@@ -224,7 +224,7 @@ class GeneratorPGGAN(object):
         input_nc += appearance_vec_size
   
       for i in range(num_blocks, -1, -1):
-        with tf.variable_scope('res_%d' % i):
+        with tf.compat.v1.variable_scope('res_%d' % i):
           self.from_rgb.append(
               layers.LayerPipe([
                   conv2d_rgb('from_rgb', n=[input_nc, nf(i + 1)]),
@@ -244,7 +244,7 @@ class GeneratorPGGAN(object):
           )
   
     # Create decoder layers.
-    with tf.variable_scope('g_model_dec', tf.AUTO_REUSE):
+    with tf.compat.v1.variable_scope('g_model_dec', tf.compat.v1.AUTO_REUSE):
       self.dec_stage = []
       self.to_rgb = []
   
@@ -252,7 +252,7 @@ class GeneratorPGGAN(object):
       if opts.use_appearance and opts.inject_z == 'to_bottleneck':
         nf_bottleneck += appearance_vec_size
 
-      with tf.variable_scope('res_0'):
+      with tf.compat.v1.variable_scope('res_0'):
         self.dec_stage.append(
           layers.LayerPipe([
             functools.partial(layers.upscale, n=2),
@@ -268,7 +268,7 @@ class GeneratorPGGAN(object):
   
       multiply_factor = 2 if opts.concatenate_skip_layers else 1
       for i in range(1, num_blocks + 1):
-        with tf.variable_scope('res_%d' % i):
+        with tf.compat.v1.variable_scope('res_%d' % i):
           self.dec_stage.append(
               layers.LayerPipe([
                   functools.partial(layers.upscale, n=2),
@@ -307,16 +307,16 @@ class GeneratorPGGAN(object):
 
     # Concatenate appearance vector to y
     if opts.use_appearance and opts.inject_z == 'to_bottleneck':
-      appearance_tensor = tf.tile(appearance_embedding,
-                                  [1, tf.shape(y)[1], tf.shape(y)[2], 1])
-      y = tf.concat([y, appearance_tensor], axis=3)
+      appearance_tensor = tf.compat.v1.tile(appearance_embedding,
+                                  [1, tf.compat.v1.shape(y)[1], tf.compat.v1.shape(y)[2], 1])
+      y = tf.compat.v1.concat([y, appearance_tensor], axis=3)
 
     y_list = []
     for i in range(self.num_blocks + 1):
       if i > 0:
         y_skip = enc_responses[i]  # skip layer
         if opts.concatenate_skip_layers:
-          y = tf.concat([y, y_skip], axis=3)
+          y = tf.compat.v1.concat([y, y_skip], axis=3)
         else:
           y = y + y_skip
       y = self.dec_stage[i](y)

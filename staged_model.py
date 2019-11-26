@@ -78,7 +78,7 @@ def create_computation_graph(x_in, x_gt, x_app=None, arch_type='pggan',
   if opts.use_vgg_loss:
     vgg_layers = ['conv%d_2' % i for i in range(1, 6)]  # conv1 through conv5
     vgg_layer_weights = [1./32, 1./16, 1./8, 1./4, 1.]
-    vgg_loss = losses.PerceptualLoss(y, x_gt, [256, 256, 3], vgg_layers,
+    vgg_loss = losses.PerceptualLoss(y, x_gt, [512, 512, 3], vgg_layers,
                                      vgg_layer_weights)  # NOTE: shouldn't hardcode image size!
     loss_g_recon = vgg_loss()
   else:
@@ -89,44 +89,44 @@ def create_computation_graph(x_in, x_gt, x_app=None, arch_type='pggan',
   # Tensorboard visualizations
   # ---------------------------------------------------------------------------
 
-  x_in_render = tf.slice(x_in, [0, 0, 0, 0], [-1, -1, -1, 3])
+  x_in_render = tf.compat.v1.slice(x_in, [0, 0, 0, 0], [-1, -1, -1, 3])
   if opts.use_semantic:
-    x_in_semantic = tf.slice(x_in, [0, 0, 0, 4], [-1, -1, -1, 3])
-    tb_visualization = tf.concat([x_in_render, x_in_semantic, y, x_gt], axis=2)
+    x_in_semantic = tf.compat.v1.slice(x_in, [0, 0, 0, 4], [-1, -1, -1, 3])
+    tb_visualization = tf.compat.v1.concat([x_in_render, x_in_semantic, y, x_gt], axis=2)
   else:
-    tb_visualization = tf.concat([x_in_render, y, x_gt], axis=2)
-  tf.summary.image('rendered-semantic-generated-gt tuple', tb_visualization)
+    tb_visualization = tf.compat.v1.concat([x_in_render, y, x_gt], axis=2)
+  tf.compat.v1.summary.image('rendered-semantic-generated-gt tuple', tb_visualization)
 
   # Show input appearance images
   if opts.use_appearance:
-    x_app_rgb = tf.slice(x_app, [0, 0, 0, 0], [-1, -1, -1, 3])
-    x_app_sem = tf.slice(x_app, [0, 0, 0, 7], [-1, -1, -1, -1])
-    tb_app_visualization = tf.concat([x_app_rgb, x_app_sem], axis=2)
-    tf.summary.image('input appearance image', tb_app_visualization)
+    x_app_rgb = tf.compat.v1.slice(x_app, [0, 0, 0, 0], [-1, -1, -1, 3])
+    x_app_sem = tf.compat.v1.slice(x_app, [0, 0, 0, 7], [-1, -1, -1, -1])
+    tb_app_visualization = tf.compat.v1.concat([x_app_rgb, x_app_sem], axis=2)
+    tf.compat.v1.summary.image('input appearance image', tb_app_visualization)
 
   # Loss summaries
-  with tf.name_scope('Discriminator_Loss'):
-    tf.summary.scalar('D_real_loss', loss_d_real)
-    tf.summary.scalar('D_fake_loss', loss_d_fake)
-    tf.summary.scalar('D_total_loss', loss_d)
-  with tf.name_scope('Generator_Loss'):
-    tf.summary.scalar('G_GAN_loss', w_loss_gan * loss_g_gan)
-    tf.summary.scalar('G_reconstruction_loss', w_loss_recon * loss_g_recon)
-    tf.summary.scalar('G_total_loss', loss_g)
+  with tf.compat.v1.name_scope('Discriminator_Loss'):
+    tf.compat.v1.summary.scalar('D_real_loss', loss_d_real)
+    tf.compat.v1.summary.scalar('D_fake_loss', loss_d_fake)
+    tf.compat.v1.summary.scalar('D_total_loss', loss_d)
+  with tf.compat.v1.name_scope('Generator_Loss'):
+    tf.compat.v1.summary.scalar('G_GAN_loss', w_loss_gan * loss_g_gan)
+    tf.compat.v1.summary.scalar('G_reconstruction_loss', w_loss_recon * loss_g_recon)
+    tf.compat.v1.summary.scalar('G_total_loss', loss_g)
 
   # ---------------------------------------------------------------------------
   # Optimizers
   # ---------------------------------------------------------------------------
 
   def get_optimizer(lr, loss, var_list):
-    optimizer = tf.train.AdamOptimizer(lr, opts.adam_beta1, opts.adam_beta2)
+    optimizer = tf.compat.v1.train.AdamOptimizer(lr, opts.adam_beta1, opts.adam_beta2)
     # optimizer = tf.contrib.estimator.TowerOptimizer(optimizer)
     return optimizer.minimize(loss, var_list=var_list)
 
   # Training ops.
-  update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-  with tf.control_dependencies(update_ops):
-    with tf.variable_scope('optimizers'):
+  update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
+  with tf.compat.v1.control_dependencies(update_ops):
+    with tf.compat.v1.variable_scope('optimizers'):
       d_vars = utils.model_vars('d_model')[0]
       g_vars_all = utils.model_vars('g_model')[0]
       train_d = [get_optimizer(opts.d_lr, loss_d, d_vars)]
@@ -138,8 +138,8 @@ def create_computation_graph(x_in, x_gt, x_app=None, arch_type='pggan',
         app_enc_vars = utils.model_vars('appearance_net')[0]
         train_app_encoder.append(get_optimizer(lr_app, loss_g, app_enc_vars))
 
-  ema = tf.train.ExponentialMovingAverage(decay=0.999)
-  with tf.control_dependencies(train_g + train_app_encoder):
+  ema = tf.compat.v1.train.ExponentialMovingAverage(decay=0.999)
+  with tf.compat.v1.control_dependencies(train_g + train_app_encoder):
     inference_vars_all = g_vars_all
     if opts.use_appearance:
       app_enc_vars = utils.model_vars('appearance_net')[0]
@@ -148,21 +148,21 @@ def create_computation_graph(x_in, x_gt, x_app=None, arch_type='pggan',
 
   print('***************************************************')
   print('len(g_vars_all) = %d' % len(g_vars_all))
-  for ii, v in enumerate(g_vars_all):
-    print('%03d) %s' % (ii, str(v)))
+  # for ii, v in enumerate(g_vars_all):
+  #   print('%03d) %s' % (ii, str(v)))
   print('-------------------------------------------------------')
   print('len(d_vars) = %d' % len(d_vars))
-  for ii, v in enumerate(d_vars):
-    print('%03d) %s' % (ii, str(v)))
+  # for ii, v in enumerate(d_vars):
+  #   print('%03d) %s' % (ii, str(v)))
   if opts.train_app_encoder:
     print('-------------------------------------------------------')
     print('len(app_enc_vars) = %d' % len(app_enc_vars))
-    for ii, v in enumerate(app_enc_vars):
-      print('%03d) %s' % (ii, str(v)))
+    # for ii, v in enumerate(app_enc_vars):
+    #   print('%03d) %s' % (ii, str(v)))
   print('***************************************************\n\n')
 
   return {
-      'train_disc_op': tf.group(train_d),
+      'train_disc_op': tf.compat.v1.group(train_d),
       'train_renderer_op': ema_op,
       'total_loss_d': loss_d,
       'loss_d_real': loss_d_real,

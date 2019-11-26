@@ -34,11 +34,11 @@ def KL_loss(mean, logvar):
 
 
 def l2_regularize(x):
-  return tf.reduce_mean(tf.square(x))
+  return tf.compat.v1.reduce_mean(tf.square(x))
 
 
 def L1_loss(x, y):
-  return tf.reduce_mean(tf.abs(x - y))
+  return tf.compat.v1.reduce_mean(tf.abs(x - y))
 
 
 class PerceptualLoss:
@@ -59,7 +59,7 @@ class PerceptualLoss:
     self.y_acts = vgg_net.get_vgg_activations(y, layers)
     loss = 0
     for w, act1, act2 in zip(self.w_layers, self.x_acts, self.y_acts):
-      loss += w * tf.reduce_mean(tf.square(self.w_act * (act1 - act2)))
+      loss += w * tf.compat.v1.reduce_mean(tf.compat.v1.square(self.w_act * (act1 - act2)))
     self.loss = loss
 
   def __call__(self):
@@ -75,9 +75,9 @@ def lsgan_appearance_E_loss(disc_response):
 
 def lsgan_loss(disc_response, is_real):
   gt_label = 1 if is_real else 0
-  disc_response = tf.squeeze(disc_response)
+  disc_response = tf.compat.v1.squeeze(disc_response)
   # The following works for both regular and patchGAN discriminators
-  loss = tf.reduce_mean(tf.square(disc_response - gt_label))
+  loss = tf.compat.v1.reduce_mean(tf.compat.v1.square(disc_response - gt_label))
   return loss
 
 
