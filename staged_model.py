@@ -100,7 +100,7 @@ def create_computation_graph(x_in, x_gt, x_app=None, arch_type='pggan',
   # Show input appearance images
   if opts.use_appearance:
     x_app_rgb = tf.compat.v1.slice(x_app, [0, 0, 0, 0], [-1, -1, -1, 3])
-    x_app_sem = tf.compat.v1.slice(x_app, [0, 0, 0, 7], [-1, -1, -1, -1])
+    x_app_sem = tf.compat.v1.slice(x_app, [0, 0, 0, 7], [-1, -1, -1, 3])
     tb_app_visualization = tf.compat.v1.concat([x_app_rgb, x_app_sem], axis=2)
     tf.compat.v1.summary.image('input appearance image', tb_app_visualization)
 

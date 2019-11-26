@@ -51,9 +51,9 @@ def _parser_rendered_dataset(
                    'rendered': tf.FixedLenFeature([], tf.string),
                    'depth': tf.FixedLenFeature([], tf.string),
                    'real': tf.FixedLenFeature([], tf.string),
-                   'seg': tf.FixedLenFeature([], tf.string),
                    'normal': tf.FixedLenFeature([], tf.string),
-                   'wc': tf.FixedLenFeature([], tf.string)}
+                   'wc': tf.FixedLenFeature([], tf.string),
+                   'seg': tf.FixedLenFeature([], tf.string)}
   features = tf.compat.v1.parse_single_example(serialized_example, features=features_dict)
   height = tf.compat.v1.cast(features['height'], tf.int32)
   width = tf.compat.v1.cast(features['width'], tf.int32)
