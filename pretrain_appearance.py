@@ -26,6 +26,8 @@ import style_loss
 import tensorflow as tf
 import utils
 
+FLAGS = flags.FLAGS
+flags.DEFINE_string('mode', 'normal_wc', 'model of the dataset')
 
 def _load_and_concatenate_image_channels(
     rgb_path=None, rendered_path=None, depth_path=None, seg_path=None,
@@ -281,7 +283,7 @@ def main(argv):
   dataset_name = opts.dataset_name
   imageset_dir = opts.imageset_dir
   output_dir = opts.metadata_output_dir
-  mode = 'normal_wc'
+  mode = FLAGS.mode
   if not osp.exists(output_dir):
     os.makedirs(output_dir)
   dist_file_path = osp.join(output_dir, 'dist_%s.pckl' % dataset_name)

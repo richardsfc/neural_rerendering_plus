@@ -84,9 +84,9 @@ def build_model_fn(use_exponential_moving_average=True):
       if use_appearance:
         app_func = g_func.get_appearance_encoder()
       if use_exponential_moving_average:
-        ema = tf.train.ExponentialMovingAverage(decay=0.999)
+        ema = tf.compat.v1.train.ExponentialMovingAverage(decay=0.999)
         var_dict = ema.variables_to_restore()
-        tf.train.init_from_checkpoint(osp.join(opts.train_dir), var_dict)
+        tf.compat.v1.train.init_from_checkpoint(osp.join(opts.train_dir), var_dict)
 
       if mode == tf.compat.v1.estimator.ModeKeys.PREDICT:
         x_in = features['conditional_input']
@@ -96,8 +96,8 @@ def build_model_fn(use_exponential_moving_average=True):
         else:
           x_app_embedding = None
         y = g_func(x_in, x_app_embedding)
-        tf.logging.info('DBG: shape of y during prediction %s.' % str(y.shape))
-        return tf.estimator.EstimatorSpec(mode=mode, predictions=y)
+        tf.compat.v1.logging.info('DBG: shape of y during prediction %s.' % str(y.shape))
+        return tf.compat.v1.estimator.EstimatorSpec(mode=mode, predictions=y)
 
       # 'eval_subset' mode is same as PREDICT but it concatenates the output to
       # the input render, semantic map and ground truth for easy comparison.
@@ -110,14 +110,14 @@ def build_model_fn(use_exponential_moving_average=True):
         else:
           x_app_embedding = None
         y = g_func(x_in, x_app_embedding)
-        tf.logging.info('DBG: shape of y during prediction %s.' % str(y.shape))
-        x_in_rgb = tf.slice(x_in, [0, 0, 0, 0], [-1, -1, -1, 3])
+        tf.compat.v1.logging.info('DBG: shape of y during prediction %s.' % str(y.shape))
+        x_in_rgb = tf.compat.v1.slice(x_in, [0, 0, 0, 0], [-1, -1, -1, 3])
         if opts.use_semantic:
-          x_in_semantic = tf.slice(x_in, [0, 0, 0, 4], [-1, -1, -1, 3])
-          output_tuple = tf.concat([x_in_rgb, x_in_semantic, y, x_gt], axis=2)
+          x_in_semantic = tf.compat.v1.slice(x_in, [0, 0, 0, 4], [-1, -1, -1, 3])
+          output_tuple = tf.compat.v1.concat([x_in_rgb, x_in_semantic, y, x_gt], axis=2)
         else:
-          output_tuple = tf.concat([x_in_rgb, y, x_gt], axis=2)
-        return tf.estimator.EstimatorSpec(mode=mode, predictions=output_tuple)
+          output_tuple = tf.compat.v1.concat([x_in_rgb, y, x_gt], axis=2)
+        return tf.compat.v1.estimator.EstimatorSpec(mode=mode, predictions=output_tuple)
 
       # 'compute_appearance' mode computes and returns the latent z vector.
       elif mode == 'compute_appearance':
@@ -316,13 +316,13 @@ def evaluate_image_set(dataset_name, dataset_parent_dir, subset_suffix,
                        output_dir=None, batch_size=6):
   if output_dir is None:
     output_dir = osp.join(opts.train_dir, 'validation_output_%s' % subset_suffix)
-  tf.gfile.MakeDirs(output_dir)
+  tf.compat.v1.gfile.MakeDirs(output_dir)
   model_fn_old = build_model_fn()
   def model_fn_wrapper(features, labels, mode, params):
     del mode
     return model_fn_old(features, labels, 'eval_subset', params)
   model_dir = opts.train_dir
-  est = tf.estimator.Estimator(model_fn_wrapper, model_dir)
+  est = tf.compat.v1.estimator.Estimator(model_fn_wrapper, model_dir)
   est_inp_fn = functools.partial(
       data.provide_data, dataset_name=dataset_name,
       parent_dir=dataset_parent_dir, subset=subset_suffix,
@@ -334,7 +334,7 @@ def evaluate_image_set(dataset_name, dataset_parent_dir, subset_suffix,
   for i, img in enumerate(images):
     output_file_path = osp.join(output_dir, 'out_%04d.png' % i)
     print('Saving file #%d: %s' % (i, output_file_path))
-    with tf.gfile.Open(output_file_path, 'wb') as f:
+    with tf.compat.v1.gfile.Open(output_file_path, 'wb') as f:
       f.write(utils.to_png(img))
 
 
