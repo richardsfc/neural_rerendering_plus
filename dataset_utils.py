@@ -28,6 +28,8 @@ import six
 import tensorflow as tf
 import segment_dataset as segment_utils
 import utils
+import json
+import ast
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('output_dir', None, 'Directory to save exported tfrecords.')
@@ -63,6 +65,7 @@ class AlignedRenderedDataset(object):
       depth_img_name = basename + 'depth.png'
       normal_img_name = basename + 'normal.png'
       wc_img_name = basename + 'wc.png'
+      point_json_name = basename + 'point.txt'
       # Read the 3D rendered image
       img_rendered = cv2.imread(rendered_img_name, cv2.IMREAD_UNCHANGED)
       # Change BGR (default cv2 format) to RGB
@@ -94,6 +97,19 @@ class AlignedRenderedDataset(object):
         img_height, img_width = img_depth.shape
         img_wc = np.zeros((img_height, img_width, 3), dtype=np.uint8)
       
+      if osp.exists(point_json_name):
+        with open(point_json_name) as json_file:
+          json_point = json.load(json_file)
+        json_point = {ast.literal_eval(k): v for k, v in json_point.items()}
+        img_height, img_width = img_depth.shape
+        img_point = np.full((img_height, img_width), 0, dtype=np.uint8)
+        for x, y in json_point:
+          img_point[y][x] = json_point[(x,y)] + 1 # NOTE bug in the zbuffer algo
+      else:
+        print('Warning: no point json found! Using a dummy placeholder!')
+        img_height, img_width = img_depth.shape
+        img_point = np.full((img_height, img_width), 0, dtype=np.uint8)
+      
       if self.use_semantic_map:
         semantic_seg_img_name = basename + 'seg_rgb.png'
         img_seg = cv2.imread(semantic_seg_img_name)
@@ -104,6 +120,7 @@ class AlignedRenderedDataset(object):
           img_depth = utils.get_central_crop(img_depth)
           img_normal = utils.get_central_crop(img_normal)
           img_wc = utils.get_central_crop(img_wc)
+          img_point = utils.get_central_crop(img_point)
 
       img_shape = img_depth.shape
       assert img_seg.shape == (img_shape + (3,)), 'error in seg image %s %s' % (
@@ -118,6 +135,8 @@ class AlignedRenderedDataset(object):
         basename, str(img_wc.shape))
       assert len(img_depth.shape) == 2, 'error in depth image %s %s' % (
         basename, str(img_depth.shape))
+      assert len(img_point.shape) == 2, 'error in point image %s %s' % (
+        basename, str(img_point.shape))
 
       raw_example = dict()
       raw_example['height'] = img_ref.shape[0]
@@ -127,6 +146,7 @@ class AlignedRenderedDataset(object):
       raw_example['real'] = img_ref.tostring()
       raw_example['normal'] = img_normal.tostring()
       raw_example['wc'] = img_wc.tostring()
+      raw_example['point'] = img_point.tostring()
       if self.use_semantic_map:
         raw_example['seg'] = img_seg.tostring()
       self.iter_idx += 1
@@ -170,8 +190,8 @@ def filter_out_sparse_renders(dataset_dir, splits, ratio_threshold=0.15):
         filtered_images.append(basename)
         print('filtered file %d: %s with a desnity of %.3f' % (ii, basename,
                                                               density))
-    print('Filtered %d/%d images' % (len(filtered_images), total_images))
-    print('Mean desnity = %.4f' % (sum_density / total_images))
+  print('Filtered %d/%d images' % (len(filtered_images), total_images))
+  print('Mean desnity = %.4f' % (sum_density / total_images))
 
 
 def _to_example(dictionary):

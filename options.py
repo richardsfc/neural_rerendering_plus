@@ -36,6 +36,8 @@ flags.DEFINE_string('metadata_output_dir', None, 'Directory to save pickled '
                     'pairwise distance matrix for appearance pretraining.')
 flags.DEFINE_integer('save_samples_kimg', 50, 'kimg cycle to save sample'
                      'validation ouptut during training.')
+flags.DEFINE_string('descriptor_folder', '/share/phoenix/nfs04/S7/rich/colmap/data/NotreDame/dense/0/',
+                    'Directory for descriptor data.')
 
 # Network inputs/outputs
 flags.DEFINE_boolean('use_depth', True, 'Add depth image to the deep buffer.')
@@ -53,6 +55,10 @@ flags.DEFINE_integer('appearance_nc', 16,
                      'Number of input channels to the appearance encoder.')
 flags.DEFINE_integer('output_nc', 3,
                      'Number of channels for the generated image.')
+flags.DEFINE_integer('descriptor_nc', 10,
+                     'Number of channels for the descriptors.')
+flags.DEFINE_integer('descriptor_div', 5,
+                     'Number of division for the descriptors.')
 
 # Staged training flags
 flags.DEFINE_string(
@@ -73,7 +79,7 @@ flags.DEFINE_string('fixed_appearance_train_dir', '',
 # -----------------------------------------------------------------------------
 
 # More hparams
-flags.DEFINE_integer('train_resolution', 256,
+flags.DEFINE_integer('train_resolution', 512,
                      'Crop train images to this resolution.')
 flags.DEFINE_float('d_lr', 0.001, 'Learning rate for the discriminator.')
 flags.DEFINE_float('g_lr', 0.001, 'Learning rate for the generator.')
@@ -200,6 +206,7 @@ def list_options():
   configs += 'dataset_parent_dir = %s\n' % FLAGS.dataset_parent_dir
   configs += 'run_mode = %s\n' % FLAGS.run_mode
   configs += 'save_samples_kimg = %d\n' % FLAGS.save_samples_kimg
+  configs += 'descriptor_folder = %s\n' % FLAGS.descriptor_folder
   configs += '\n# --------------------------------------------------------\n\n'
 
   configs += ('## Network inputs and outputs:\n'
@@ -213,6 +220,8 @@ def list_options():
   configs += 'deep_buffer_nc = %d\n' % FLAGS.deep_buffer_nc
   configs += 'appearance_nc = %d\n' % FLAGS.appearance_nc
   configs += 'output_nc = %d\n' % FLAGS.output_nc
+  configs += 'descriptor_nc = %d/n' %FLAGS.descriptor_nc 
+  configs += 'descriptor_div = %d/n' %FLAGS.descriptor_div
   configs += 'train_resolution = %d\n' % FLAGS.train_resolution
   configs += '\n# --------------------------------------------------------\n\n'
 

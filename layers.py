@@ -13,8 +13,30 @@
 # limitations under the License.
 
 import functools
+from options import FLAGS as opts
 import numpy as np
 import tensorflow as tf
+from plyfile import PlyData, PlyElement
+
+class LayerDescriptor(object):
+  
+  def __init__(self, name, m): 
+    with tf.variable_scope(name):
+      plydata = PlyData.read(opts.descriptor_folder + '/fused.ply')
+      shape = [(plydata.elements[0].count // opts.descriptor_div) + 1, m]
+      self.dim = m
+      with tf.device('/device:GPU:1'):
+        self.descriptors = tf.get_variable('descriptors', shape=shape) # 0 index is the null descriptor
+
+  def __call__(self, x):
+    """Apply layer to tensor x."""
+    with tf.device('/device:GPU:1'):
+        shape = x.get_shape().as_list()
+        indices = tf.reshape(x[:, :, :, -1], shape=[-1, 1])
+        indices = tf.compat.v1.cast(tf.math.ceil(tf.compat.v1.divide(indices, opts.descriptor_div)), tf.int64)
+        D = tf.gather_nd(self.descriptors, indices)
+        D = tf.reshape(D, shape=[-1, shape[1], shape[2], self.dim])
+        return tf.compat.v1.concat([tf.slice(x, [0, 0, 0, 0], [-1, -1, -1, opts.deep_buffer_nc]), D], axis=-1)
 
 
 class LayerInstanceNorm(object):

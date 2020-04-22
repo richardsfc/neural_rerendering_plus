@@ -65,8 +65,8 @@ def create_computation_graph(x_in, x_gt, x_app=None, arch_type='pggan',
   w_loss_recon = opts.w_loss_vgg if opts.use_vgg_loss else opts.w_loss_l1
 
   # compute discriminator logits
-  disc_real_featmaps = discriminator(x_gt, x_in)
-  disc_fake_featmaps = discriminator(y, x_in)
+  disc_real_featmaps = discriminator(x_gt, tf.compat.v1.slice(x_in, [0, 0, 0, 0], [-1, -1, -1, opts.deep_buffer_nc]))
+  disc_fake_featmaps = discriminator(y, tf.compat.v1.slice(x_in, [0, 0, 0, 0], [-1, -1, -1, opts.deep_buffer_nc]))
 
   # discriminator loss
   loss_d_real = losses.multiscale_discriminator_loss(disc_real_featmaps, True)
