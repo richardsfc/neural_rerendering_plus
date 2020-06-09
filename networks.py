@@ -51,7 +51,7 @@ class ModelPGGAN(RenderingModel):
   def __init__(self, use_appearance=True):
     self._use_appearance = use_appearance
     self._content_encoder = None
-    self._generator = GeneratorPGGAN(appearance_vec_size=opts.app_vector_size)
+    self._generator = GeneratorPGGAN(appearance_vec_size=opts.app_vector_size, input_nc=opts.deep_buffer_nc)
     if use_appearance:
       self._appearance_encoder = DRITAppearanceEncoderConcat(
           'appearance_net', opts.appearance_nc, opts.normalize_drit_Ez)
@@ -214,7 +214,10 @@ class GeneratorPGGAN(object):
         layers.LayerConv, stride=1, use_scaling=use_scaling, relu_slope=0.2)
     conv2d_rgb = functools.partial(layers.LayerConv, w=1, stride=1,
                                    use_scaling=use_scaling)
-  
+    
+    with tf.compat.v1.variable_scope('g_model', tf.compat.v1.AUTO_REUSE):
+      self.layer_descriptor = layers.LayerDescriptor('g_descriptors', opts.descriptor_nc)
+    
     # Create encoder layers.
     with tf.compat.v1.variable_scope('g_model_enc', tf.compat.v1.AUTO_REUSE):
       self.enc_stage = []
@@ -227,7 +230,7 @@ class GeneratorPGGAN(object):
         with tf.compat.v1.variable_scope('res_%d' % i):
           self.from_rgb.append(
               layers.LayerPipe([
-                  conv2d_rgb('from_rgb', n=[input_nc, nf(i + 1)]),
+                  conv2d_rgb('from_rgb', n=[input_nc + opts.descriptor_nc, nf(i + 1)]),
                   activation,
               ])
           )
@@ -298,6 +301,7 @@ class GeneratorPGGAN(object):
     if opts.use_appearance and opts.inject_z == 'to_encoder':
       x = layers.tile_and_concatenate(x, appearance_embedding,
                                       opts.app_vector_size)
+    x = self.layer_descriptor(x)
     y = self.from_rgb[enc_st_idx](x)
 
     enc_responses = []

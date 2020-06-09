@@ -30,6 +30,7 @@ import staged_model
 import tensorflow as tf
 import time
 import utils
+import os
 
 
 def build_model_fn(use_exponential_moving_average=True):
@@ -234,11 +235,14 @@ def train(dataset_name, dataset_parent_dir, load_pretrained_app_encoder,
   """
   image_dir = osp.join(opts.train_dir, 'images')  # to save validation images.
   tf.compat.v1.gfile.MakeDirs(image_dir)
+  session_config = tf.ConfigProto()
+  session_config.gpu_options.allow_growth = True
   config = tf.compat.v1.estimator.RunConfig(
       save_summary_steps=(1 << 10) // opts.batch_size,
       save_checkpoints_steps=(save_samples_kimg << 10) // opts.batch_size,
       keep_checkpoint_max=5,
-      log_step_count_steps=1 << 30)
+      log_step_count_steps=1 << 30,
+      session_config=session_config)
   model_dir = opts.train_dir
   if (opts.use_appearance and load_trained_fixed_app and
       not tf.compat.v1.train.latest_checkpoint(model_dir)):
@@ -615,4 +619,6 @@ def main(argv):
 
 
 if __name__ == '__main__':
+  os.environ["TF_MIN_GPU_MULTIPROCESSOR_COUNT"]="2"
+  os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
   app.run(main)

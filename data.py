@@ -53,6 +53,7 @@ def _parser_rendered_dataset(
                    'real': tf.FixedLenFeature([], tf.string),
                    'normal': tf.FixedLenFeature([], tf.string),
                    'wc': tf.FixedLenFeature([], tf.string),
+                   'point': tf.FixedLenFeature([], tf.string),
                    'seg': tf.FixedLenFeature([], tf.string)}
   features = tf.compat.v1.parse_single_example(serialized_example, features=features_dict)
   height = tf.compat.v1.cast(features['height'], tf.int32)
@@ -95,7 +96,7 @@ def _parser_rendered_dataset(
     conditional_input = tf.compat.v1.concat([conditional_input, wc_img], axis=-1)
 
   # Verify that the parsed input has the correct number of channels.
-  assert conditional_input.shape[-1] == opts.deep_buffer_nc, ('num channels '
+  assert conditional_input.shape[-1] == (opts.deep_buffer_nc), ('num channels '
       'in the parsed input doesn\'t match num input channels specified in '
       'opts.deep_buffer_nc!')
 
@@ -110,9 +111,15 @@ def _parser_rendered_dataset(
     # Concatenate the deep buffer to the real image.
     appearance_input = tf.compat.v1.concat([real, conditional_input], axis=-1)
     # Verify that the parsed input has the correct number of channels.
-    assert appearance_input.shape[-1] == opts.appearance_nc, ('num channels '
+    assert appearance_input.shape[-1] == (opts.appearance_nc), ('num channels '
         'in the parsed appearance input doesn\'t match num input channels '
         'specified in opts.appearance_nc!')
+
+  # Parse the point "image"
+  point_img = tf.decode_raw(features['point'], tf.uint8)
+  point_img = tf.compat.v1.reshape(point_img, [height, width, 1])
+  point_img = tf.compat.v1.cast(point_img, tf.float32)
+  conditional_input = tf.compat.v1.concat([conditional_input, point_img], axis=-1)
 
   # Crop conditional_input and real images, but keep the appearance input
   # uncropped (learn a one-to-many mapping from appearance to output)
@@ -135,8 +142,12 @@ def _parser_rendered_dataset(
         seed_idx = random.randint(0, len(seeds) - 1)
         seed = seeds[seed_idx]
       conditional_input = tf.random_crop(
-          conditional_input, crop_size + [opts.deep_buffer_nc], seed=seed)
+          conditional_input, crop_size + [opts.deep_buffer_nc + 1], seed=seed)
       real = tf.random_crop(real, crop_size + [3], seed=seed)
+  
+  print('==================')
+  print('x shape is: ')
+  print(conditional_input.shape)
 
   features = {'conditional_input': conditional_input,
               'expected_output': real,
